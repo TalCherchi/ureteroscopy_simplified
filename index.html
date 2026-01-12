@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>סימולטור ריסוק אבנים</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a202c;
+            font-family: 'Rubik', sans-serif;
+            color: white;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background: #0f131a;
+            border-radius: 8px;
+            cursor: default; 
+        }
+
+        .ui-layer {
+            position: absolute;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .header {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 20px;
+            align-self: center;
+            backdrop-filter: blur(4px);
+            max-width: 90%;
+            border: 1px solid #4a5568;
+            transition: all 0.5s ease;
+            position: relative;
+            pointer-events: auto; /* Allow clicking text if needed */
+        }
+
+        .header.top-left {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: auto;
+            align-self: flex-start;
+            text-align: right;
+            max-width: 300px;
+            transform: none;
+            margin: 0;
+        }
+
+        h1 { margin: 0; font-size: 1.3rem; color: #63b3ed; margin-bottom: 8px; }
+        p { margin: 5px 0 0; font-size: 1rem; color: #e2e8f0; line-height: 1.5; }
+        .subtext { font-size: 0.85rem; color: #a0aec0; margin-top: 10px; display: block; }
+        
+        ul { text-align: right; padding-right: 20px; margin: 10px 0; font-size: 0.95rem; color: #cbd5e0; }
+        li { margin-bottom: 5px; }
+
+        .btn-action {
+            pointer-events: auto;
+            background: #3182ce;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-family: inherit;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .btn-action:active { transform: scale(0.95); }
+        .btn-action.secondary {
+            background: transparent;
+            border: 2px solid #4a5568;
+            padding: 8px 20px;
+            font-size: 0.9rem;
+            color: #cbd5e0;
+            margin-top: 10px;
+            background-color: rgba(0,0,0,0.3); 
+        }
+
+        #laser-btn {
+            pointer-events: auto;
+            position: absolute;
+            bottom: 90px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fc8181 0%, #c53030 100%);
+            border: 4px solid #fff;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 0 15px #c53030;
+            transition: transform 0.1s, opacity 0.3s;
+            opacity: 0; 
+            transform: scale(0);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #laser-btn.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #laser-btn.active {
+            box-shadow: 0 0 25px #f56565, 0 0 50px #f56565 inset;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        #modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: white;
+            color: #2d3748;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .modal-content h2 { margin-top: 0; color: #2b6cb0; font-size: 1.5rem; }
+        .modal-content p { color: #4a5568; margin-bottom: 15px; }
+        
+        .info-list { text-align: right; background: #f7fafc; padding: 15px; border-radius: 8px; margin: 10px 0; }
+        .info-list h3 { font-size: 1rem; color: #2d3748; margin: 0 0 5px 0; }
+        .info-list ul { padding-right: 20px; margin: 0; color: #4a5568; }
+
+        .hidden { display: none !important; }
+
+        .bottom-nav {
+            position: absolute;
+            bottom: 20px;
+            right: 20px; 
+            left: auto;
+            width: auto;
+            display: flex;
+            pointer-events: none;
+        }
+        .bottom-nav button {
+            pointer-events: auto;
+        }
+
+        .anatomy-label {
+            position: absolute;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            pointer-events: none;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <!-- labels-container removed -->
+    <div class="ui-layer">
+        <div class="header hidden" id="game-instruction-box">
+            <h1 id="stage-title">כותרת</h1>
+            <div id="stage-content">תוכן</div>
+            <button id="next-stage-btn" class="btn-action hidden" onclick="window.nextStage()">המשך</button>
+        </div>
+        <div id="laser-btn">לייזר</div>
+        <div class="bottom-nav">
+            <button id="back-btn" class="btn-action secondary hidden" onclick="window.goBack()">חזור</button>
+        </div>
+    </div>
+    <div id="modal">
+        <div class="modal-content" id="start-screen">
+            <h2>ברוכים הבאים</h2>
+            <p>משחק זה מדמה ומסביר בצורה פשוטה את ההליך הרפואי שאתם הולכים לעבור להסרת אבנים ממערכת השתן.</p>
+            <span class="subtext">המשחק אורך כ-5 דקות • בכל שלב תוכלו לעצור ולחזור</span>
+            <button class="btn-action" onclick="window.startGameFlow()">בואו נתחיל</button>
+        </div>
+        <div class="modal-content hidden" id="success-screen">
+            <h2 style="color: #38a169;">הניתוח עבר בהצלחה!</h2>
+            <div class="info-list">
+                <h3>אחרי הניתוח – מה מרגישים?</h3>
+                <ul>
+                    <li>מיד לאחר ההליך תישארו למעקב קצר. לרוב חוזרים הביתה באותו יום.</li>
+                    <li>ביום-יומיים הראשונים ייתכן צריבה קלה או צורך דחוף להשתין. זה טבעי וחולף.</li>
+                    <li>חשוב לפעול לפי הוראות הרופא וליטול תרופות במידת הצורך.</li>
+                </ul>
+            </div>
+            <div class="info-list" style="background: #e6fffa;">
+                <h3>תופעות נפוצות (טבעיות):</h3>
+                <ul>
+                    <li>צריבה קלה בשתן</li>
+                    <li>צורך תכוף להשתין</li>
+                    <li>דם קל בשתן (ביומיים הראשונים)</li>
+                    <li>תחושת אי נוחות קלה</li>
+                </ul>
+                <p style="margin-top:5px; font-weight:bold; color: #2c7a7b;">✓ כל התופעות הללו חולפות תוך מספר ימים</p>
+            </div>
+            <button class="btn-action" onclick="window.resetGame()">התחל מחדש</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Global Variables ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const laserBtn = document.getElementById('laser-btn');
+    const modal = document.getElementById('modal');
+    const startScreen = document.getElementById('start-screen');
+    const successScreen = document.getElementById('success-screen');
+    // labelsContainer removed
+    const instructionBox = document.getElementById('game-instruction-box');
+    const stageTitle = document.getElementById('stage-title');
+    const stageContent = document.getElementById('stage-content');
+    const nextStageBtn = document.getElementById('next-stage-btn');
+    const backBtn = document.getElementById('back-btn');
+
+    const STAGES = ['intro', 'device_intro', 'demo_handle', 'demo_tract', 'laser_explainer', 'navigate_handle', 'navigate_tract', 'destroy', 'post_op'];
+    let currentStageIndex = 0;
+    
+    let isLaserActive = false;
+    let autoLaserTimer = 0;
+    let width, height;
+    
+    let fullPath = []; 
+    let organStartIndex = 0;
+    let scopeChain = []; 
+    let stones = []; 
+    let particles = [];
+    
+    let cameraZoom = 1;
+    let cameraOffset = { x: 0, y: 0 };
+    let targetZoom = 1;
+    let targetOffset = { x: 0, y: 0 };
+
+    const mouse = { x: 0, y: 0, isDown: false };
+    let scopeProgressIndex = 0; 
+    let isGrabbingTip = false; 
+    
+    // Constants
+    const KIDNEY_COLOR = '#FEB2B2';
+    const KIDNEY_STROKE = '#E53E3E';
+    const TRACT_COLOR = '#FED7D7';
+    const TRACT_STROKE = '#F56565';
+    const STONE_COLOR = '#D69E2E';
+    const TRACT_RADIUS = 14; 
+
+    let levelCompleteTime = null; 
+    let breathOffset = 0; 
+    let visibilityObscurity = 0; 
+
+    // --- Helper Functions ---
+
+    // Manual RoundRect implementation
+    function drawRoundRectPath(ctx, x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    function addBezierCurvePoints(arr, x1, y1, cp1x, cp1y, cp2x, cp2y, x2, y2, steps) {
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps; const invT = 1 - t;
+            const x = (invT ** 3) * x1 + 3 * (invT ** 2) * t * cp1x + 3 * invT * (t ** 2) * cp2x + (t ** 3) * x2;
+            const y = (invT ** 3) * y1 + 3 * (invT ** 2) * t * cp1y + 3 * invT * (t ** 2) * cp2y + (t ** 3) * y2;
+            arr.push({x, y});
+        }
+    }
+    function addLinePoints(arr, x1, y1, x2, y2, steps) {
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            arr.push({ x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t });
+        }
+    }
+    function addQuadCurvePoints(arr, x1, y1, cx, cy, x2, y2, steps) {
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps; const invT = 1 - t;
+            arr.push({
+                x: invT * invT * x1 + 2 * invT * t * cx + t * t * x2,
+                y: invT * invT * y1 + 2 * invT * t * cy + t * t * y2
+            });
+        }
+    }
+
+    function generateFullPaths(w, h) {
+        if (!w || !h) return [];
+        const points = [];
+        const handleX = w * 0.15 + 10; const handleY = h * 0.85 - 30;
+        const entryX = w * 0.5; const entryY = h * 0.95;
+        addBezierCurvePoints(points, handleX, handleY, handleX + 50, handleY - 100, entryX - 50, entryY + 50, entryX, entryY, 25);
+        organStartIndex = points.length - 1;
+        addLinePoints(points, w * 0.5, h * 0.95, w * 0.5, h * 0.75, 20); 
+        addQuadCurvePoints(points, w * 0.5, h * 0.75, w * 0.5, h * 0.65, w * 0.55, h * 0.60, 20); 
+        addBezierCurvePoints(points, w * 0.55, h * 0.60, w * 0.65, h * 0.55, w * 0.70, h * 0.40, w * 0.70, h * 0.20, 50); 
+        return points;
+    }
+
+    // --- Entity Classes ---
+
+    class Stone {
+        constructor(x, y, radius) {
+            this.x = x; this.y = y; this.radius = radius;
+            this.health = 100;
+            this.vertices = [];
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                const r = this.radius * (0.7 + Math.random() * 0.6);
+                this.vertices.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            if (isLaserActive && (STAGES[currentStageIndex] === 'destroy' || STAGES[currentStageIndex] === 'laser_explainer')) {
+                ctx.translate(Math.random()*2 - 1, Math.random()*2 - 1);
+            }
+            ctx.beginPath();
+            const scale = this.radius / 20; 
+            ctx.scale(scale, scale);
+            ctx.moveTo(this.vertices[0].x, this.vertices[0].y);
+            for (let i = 1; i < this.vertices.length; i++) ctx.lineTo(this.vertices[i].x, this.vertices[i].y);
+            ctx.closePath();
+            ctx.fillStyle = STONE_COLOR; ctx.fill(); ctx.strokeStyle = '#744210'; ctx.lineWidth = 1.5; ctx.stroke();
+            if (this.health < 70) { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(this.vertices[0].x, this.vertices[0].y); ctx.stroke(); }
+            if (this.health < 40) { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(this.vertices[3].x, this.vertices[3].y); ctx.stroke(); }
+            ctx.restore();
+        }
+        hit() {
+            this.health -= 10;
+            this.radius *= 0.95;
+            createParticles(this.x, this.y + breathOffset, STONE_COLOR);
+            visibilityObscurity = Math.min(visibilityObscurity + 0.15, 0.98); 
+            return (this.health <= 0);
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random() - 0.5) * 8; this.vy = (Math.random() - 0.5) * 8;
+            this.life = 1.0; this.color = color; this.size = Math.random() * 3 + 1;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.life -= 0.05; }
+        draw() {
+            ctx.globalAlpha = this.life; ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    function createParticles(x, y, color) {
+        // No particles per request
+    }
+
+    function initStones() {
+        if (fullPath.length === 0) return;
+        const loc = fullPath[fullPath.length - 1]; 
+        stones = [new Stone(loc.x, loc.y, 20)];
+    }
+
+    function initScopeAt(startIndex) {
+        if (fullPath.length === 0) return;
+        scopeChain = [];
+        if (startIndex < 0) startIndex = 0;
+        const startP = fullPath[startIndex];
+        const segments = 200; 
+        if (startIndex === 0) {
+            for(let i=0; i<segments; i++) scopeChain.push({ x: startP.x, y: startP.y });
+        } else {
+            const spacing = 5;
+            for(let i=0; i<segments; i++) scopeChain.push({ x: startP.x, y: startP.y + (i * spacing) });
+        }
+    }
+
+    // updateLabels function removed - replaced by drawAnatomyLabels
+
+    function handleDragInputPath(minIdx, maxIdx) {
+        let closestDist = Infinity;
+        let closestIdx = -1;
+        for(let i = minIdx; i <= maxIdx; i++) {
+            const p = fullPath[i];
+            if(!p) continue;
+            const d = Math.hypot(mouse.x - p.x, mouse.y - p.y);
+            if (d < closestDist) { closestDist = d; closestIdx = i; }
+        }
+        if (closestIdx !== -1) {
+            let diff = closestIdx - scopeProgressIndex;
+            // Changed factor from 0.05 to 0.02 for slower, heavier movement
+            if (Math.abs(diff) > 0.1) scopeProgressIndex += diff * 0.02; else scopeProgressIndex = closestIdx;
+            if (scopeProgressIndex < minIdx) scopeProgressIndex = minIdx;
+            if (scopeProgressIndex > maxIdx) scopeProgressIndex = maxIdx;
+        }
+    }
+
+    // --- Drawing Functions ---
+
+    function drawOrgans() {
+        if (fullPath.length === 0) return;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const endP = fullPath[fullPath.length - 1];
+        
+        ctx.save(); 
+        ctx.translate(endP.x, endP.y); 
+        // Scale line removed to mirror the kidney horizontally
+        ctx.rotate(-Math.PI / 4); 
+        ctx.beginPath();
+        // Updated bean shape
+        ctx.moveTo(0, 20); 
+        // Bottom inner lobe
+        ctx.bezierCurveTo(-40, 60, -40, 120, 20, 140);
+        // Outer convex side
+        ctx.bezierCurveTo(100, 140, 140, -40, 100, -100);
+        // Top pole
+        ctx.bezierCurveTo(80, -150, 0, -150, -20, -100);
+        // Top inner lobe back to hilum
+        ctx.bezierCurveTo(-40, -60, -30, -20, 0, 20);
+
+        ctx.fillStyle = KIDNEY_COLOR; ctx.strokeStyle = KIDNEY_STROKE; ctx.lineWidth = 8; ctx.fill(); ctx.stroke();
+        ctx.restore();
+
+        ctx.save(); ctx.beginPath();
+        ctx.ellipse(width * 0.5, height * 0.70, width * 0.15, height * 0.12, 0, 0, Math.PI * 2);
+        ctx.fillStyle = KIDNEY_COLOR; ctx.strokeStyle = KIDNEY_STROKE; ctx.lineWidth = 8; ctx.fill(); ctx.stroke();
+        ctx.restore();
+
+        if (fullPath[organStartIndex]) {
+            ctx.beginPath();
+            const startP = fullPath[organStartIndex];
+            ctx.moveTo(startP.x, startP.y);
+            for(let i=organStartIndex + 1; i<fullPath.length; i++) ctx.lineTo(fullPath[i].x, fullPath[i].y);
+            ctx.strokeStyle = TRACT_STROKE; ctx.lineWidth = 40; ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(startP.x, startP.y);
+            for(let i=organStartIndex + 1; i<fullPath.length; i++) ctx.lineTo(fullPath[i].x, fullPath[i].y);
+            ctx.strokeStyle = TRACT_COLOR; ctx.lineWidth = 30; ctx.stroke();
+        }
+    }
+
+    function drawAnatomyLabels() {
+        const stage = STAGES[currentStageIndex];
+        // Show labels in all stages where the tract is visible
+        if (['demo_handle', 'demo_tract', 'laser_explainer', 'navigate_handle', 'navigate_tract', 'destroy'].includes(stage)) {
+            ctx.save();
+            // Scale font size inversely to zoom so it remains readable on screen but anchored in world
+            const fontSize = Math.max(14, 20 / cameraZoom); 
+            ctx.font = `bold ${fontSize}px Rubik`;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.shadowColor = "rgba(0,0,0,0.8)";
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+
+            // Kidney Label
+            if (fullPath.length > 0) {
+                const kidneyPos = fullPath[fullPath.length - 1];
+                // Offset label slightly to the left/top of the kidney anchor
+                ctx.fillText("כליה", kidneyPos.x - (100 / cameraZoom), kidneyPos.y - (40 / cameraZoom));
+            }
+
+            // Bladder Label
+            const bladderX = width * 0.5;
+            const bladderY = height * 0.70;
+            ctx.fillText("שלפוחית השתן", bladderX, bladderY + (90 / cameraZoom));
+
+            ctx.restore();
+        }
+    }
+
+    function drawLargeDevice() {
+        ctx.save();
+        const cy = height / 2 + 60; const cx = width / 2 - 120; 
+        ctx.translate(cx, cy);
+        
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = '#2d3748';
+        drawRoundRectPath(ctx, -40, -100, 80, 200, 20);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(-30, -50); ctx.lineTo(30, -50); ctx.moveTo(-30, 0); ctx.lineTo(30, 0); ctx.moveTo(-30, 50); ctx.lineTo(30, 50); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -100); ctx.bezierCurveTo(0, -250, 200, -250, 200, -100);
+        ctx.strokeStyle = '#2D3748'; ctx.lineWidth = 12; ctx.stroke();
+        ctx.fillStyle = '#A0AEC0'; ctx.fillRect(194, -100, 12, 20);
+        ctx.restore();
+        
+        ctx.fillStyle = "white"; ctx.font = "bold 16px Rubik"; ctx.textAlign = "center";
+        ctx.fillText("ידית אחיזה", cx - 80, cy + 80); ctx.fillText("סיב גמיש", cx + 40, cy - 240); ctx.fillText("מצלמה ולייזר", cx + 180, cy - 205);
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx - 80, cy + 70); ctx.lineTo(cx - 20, cy + 20);
+        ctx.moveTo(cx + 40, cy - 235); ctx.lineTo(cx + 10, cy - 200); 
+        ctx.moveTo(cx + 130, cy - 210); ctx.lineTo(cx + 85, cy - 205); 
+        ctx.stroke();
+
+        const previewScale = 0.75; const previewX = width * 0.75; const previewY = height * 0.5; 
+        ctx.save(); ctx.translate(previewX, previewY); ctx.scale(previewScale, previewScale); ctx.translate(-width / 2, -height / 2);
+        drawOrgans();
+        if (fullPath.length > 0) {
+            const stonePos = fullPath[fullPath.length - 1]; 
+            ctx.translate(stonePos.x, stonePos.y); ctx.rotate(Math.PI / 4); 
+            ctx.beginPath(); const r = 20; ctx.moveTo(r, 0);
+            for (let i = 1; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                const rad = r * (0.8 + Math.sin(i)*0.1);
+                ctx.lineTo(Math.cos(angle) * rad, Math.sin(angle) * rad);
+            }
+            ctx.closePath(); ctx.fillStyle = STONE_COLOR; ctx.fill(); ctx.strokeStyle = '#744210'; ctx.lineWidth = 3; ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 16px Rubik";
+        const labelKidneyY = previewY - (height * 0.25 * previewScale); const labelBladderY = previewY + (height * 0.20 * previewScale);
+        ctx.fillText("אבן בכליה", previewX + 60, labelKidneyY); ctx.fillText("שלפוחית השתן", previewX + 80, labelBladderY);
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(previewX + 50, labelKidneyY); ctx.lineTo(previewX, labelKidneyY + 20);
+        ctx.moveTo(previewX + 70, labelBladderY); ctx.lineTo(previewX, labelBladderY - 20);
+        ctx.stroke();
+    }
+
+    function drawUreteroscopeHandle() {
+        const handleX = width * 0.15; const handleY = height * 0.85; 
+        ctx.save(); ctx.translate(handleX, handleY); ctx.rotate(-0.3); 
+        ctx.fillStyle = '#2d3748';
+        drawRoundRectPath(ctx, -20, -40, 40, 100, 10);
+        ctx.fill();
+        ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(-15, -20); ctx.lineTo(15, -20); ctx.moveTo(-15, 0); ctx.lineTo(15, 0); ctx.moveTo(-15, 20); ctx.lineTo(15, 20); ctx.stroke();
+        ctx.fillStyle = '#4a5568'; ctx.beginPath(); ctx.arc(0, -40, 30, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = '#718096'; ctx.beginPath(); ctx.arc(0, -55, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawScope() {
+        if (scopeChain.length === 0) return;
+        ctx.beginPath();
+        ctx.moveTo(scopeChain[0].x, scopeChain[0].y);
+        for (let i = 1; i < scopeChain.length - 1; i++) {
+            const xc = (scopeChain[i].x + scopeChain[i + 1].x) / 2;
+            const yc = (scopeChain[i].y + scopeChain[i + 1].y) / 2;
+            ctx.quadraticCurveTo(scopeChain[i].x, scopeChain[i].y, xc, yc);
+        }
+        ctx.strokeStyle = '#2D3748'; ctx.lineWidth = 6; ctx.stroke();
+        ctx.strokeStyle = '#718096'; ctx.lineWidth = 2; ctx.stroke();
+
+        const tip = scopeChain[0];
+        const angle = Math.atan2(tip.y - scopeChain[1].y, tip.x - scopeChain[1].x);
+
+        ctx.save(); ctx.translate(tip.x, tip.y); ctx.rotate(angle);
+        ctx.fillStyle = '#A0AEC0'; ctx.fillRect(-5, -6, 10, 12);
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(100, -30); ctx.lineTo(100, 30); ctx.closePath();
+        const grad = ctx.createRadialGradient(0,0,10, 0,0,100);
+        grad.addColorStop(0, 'rgba(255,255,255,0.4)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad; ctx.fill();
+
+        if (isLaserActive) {
+            ctx.beginPath(); ctx.moveTo(0, 0); 
+            let laserLen = 200; 
+            if (stones.length > 0) {
+                const s = stones[0];
+                const stoneVisualY = s.y + breathOffset;
+                const dist = Math.hypot(tip.x - s.x, tip.y - stoneVisualY);
+                if (dist < 200) laserLen = dist - s.radius;
+            }
+            ctx.lineTo(laserLen, 0); 
+            ctx.strokeStyle = '#F56565'; ctx.lineWidth = 3; ctx.shadowBlur = 10; ctx.shadowColor = 'red'; ctx.stroke(); ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        const stage = STAGES[currentStageIndex];
+        if ((stage === 'navigate_handle' || stage === 'navigate_tract' || stage === 'destroy') && !isGrabbingTip) {
+            ctx.save(); ctx.translate(tip.x, tip.y);
+            const pulse = (Math.sin(Date.now() / 200) + 1) / 2; 
+            ctx.beginPath(); ctx.arc(0, 0, 20 + pulse * 10, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(99, 179, 237, ${0.8 - pulse * 0.5})`; ctx.lineWidth = 2; ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // --- Main Loop Functions ---
+
+    function fireLaser() {
+        if (STAGES[currentStageIndex] !== 'destroy') return;
+        
+        // Activate laser visually
+        isLaserActive = true; 
+        
+        // Turn off laser automatically after a short burst (one shot behavior)
+        setTimeout(() => {
+            isLaserActive = false;
+        }, 200);
+
+        if (scopeChain.length > 0 && stones.length > 0) {
+            const s = stones[0];
+            const tip = scopeChain[0];
+            const visualStoneY = s.y + breathOffset;
+            const d = Math.hypot(tip.x - s.x, tip.y - visualStoneY);
+            if (d < 60) { 
+                const destroyed = s.hit(); 
+                if (destroyed) stones.shift(); 
+            }
+        }
+    }
+
+    function updateScope() {
+        if (fullPath.length === 0 || scopeChain.length === 0) return;
+        const stage = STAGES[currentStageIndex];
+
+        if (stage === 'demo_handle') {
+            if (scopeProgressIndex < organStartIndex) {
+                scopeProgressIndex += 0.5;
+                const idx = Math.floor(scopeProgressIndex);
+                if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
+            } else { nextStageBtn.classList.remove('hidden'); }
+        }
+        else if (stage === 'demo_tract') {
+            if (scopeProgressIndex < fullPath.length - 10) {
+                scopeProgressIndex += 0.5;
+                const idx = Math.floor(scopeProgressIndex);
+                if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
+            } else { nextStageBtn.classList.remove('hidden'); }
+        }
+        else if (stage === 'laser_explainer') {
+            const targetIdx = fullPath.length - 8;
+            if (Math.abs(scopeProgressIndex - targetIdx) > 5) scopeProgressIndex = targetIdx;
+             const idx = Math.floor(scopeProgressIndex);
+            if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
+            autoLaserTimer++;
+            if (autoLaserTimer % 120 < 60) { isLaserActive = true; if(stones.length>0) createParticles(stones[0].x, stones[0].y + breathOffset, STONE_COLOR); }
+            else isLaserActive = false;
+        }
+        else if (stage === 'navigate_handle') {
+            if (isGrabbingTip) {
+                handleDragInputPath(0, organStartIndex + 2);
+                const idx = Math.floor(scopeProgressIndex);
+                if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
+            }
+            if (scopeProgressIndex >= organStartIndex) window.nextStage();
+        }
+        else if (stage === 'navigate_tract') {
+            if (isGrabbingTip) {
+                handleDragInputPath(organStartIndex, fullPath.length - 1);
+                const idx = Math.floor(scopeProgressIndex);
+                if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
+            }
+            if (scopeProgressIndex >= fullPath.length - 20) window.nextStage();
+        }
+        else if (stage === 'destroy') {
+            if (isGrabbingTip) {
+                let limitIdx = fullPath.length - 1;
+                const scanEnd = Math.min(fullPath.length, Math.floor(scopeProgressIndex) + 50);
+                for (let s of stones) {
+                    const stoneVisualY = s.y + breathOffset;
+                    const minDist = s.radius + 10; 
+                    for(let i = Math.floor(scopeProgressIndex); i < scanEnd; i++) {
+                        const p = fullPath[i];
+                        const d = Math.hypot(p.x - s.x, p.y - stoneVisualY);
+                        if (d < minDist) { if (i < limitIdx) limitIdx = i; break; }
+                    }
+                }
+                const safeBackLimit = Math.max(organStartIndex, fullPath.length - 60);
+                handleDragInputPath(safeBackLimit, limitIdx);
+                const idx = Math.floor(scopeProgressIndex);
+                if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
+            }
+        }
+        
+        for (let i = 1; i < scopeChain.length; i++) {
+            const prev = scopeChain[i - 1]; const curr = scopeChain[i];
+            const dx = curr.x - prev.x; const dy = curr.y - prev.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 5) {
+                const ratio = (dist - 5) / dist;
+                curr.x -= dx * ratio; curr.y -= dy * ratio;
+            }
+        }
+    }
+
+    function loop() {
+        const stage = STAGES[currentStageIndex];
+        ctx.clearRect(0, 0, width, height);
+
+        if (visibilityObscurity > 0) { visibilityObscurity -= 0.005; if(visibilityObscurity<0) visibilityObscurity=0; }
+        if (stage === 'destroy' || stage === 'laser_explainer') breathOffset = Math.sin(Date.now() / 800) * 8; 
+        else breathOffset = 0;
+
+        cameraZoom += (targetZoom - cameraZoom) * 0.05;
+        cameraOffset.x += (targetOffset.x - cameraOffset.x) * 0.05;
+        cameraOffset.y += (targetOffset.y - cameraOffset.y) * 0.05;
+
+        ctx.save();
+        ctx.translate(cameraOffset.x, cameraOffset.y);
+        ctx.scale(cameraZoom, cameraZoom);
+
+        if (stage === 'device_intro') {
+            drawLargeDevice();
+        } else {
+            if (stage === 'demo_handle' || stage === 'navigate_handle') drawUreteroscopeHandle();
+            ctx.save(); ctx.translate(0, breathOffset);
+            drawOrgans();
+            drawAnatomyLabels(); // Draw labels on top of organs
+            stones.forEach(s => s.draw());
+            ctx.restore();
+            drawScope();
+            updateScope();
+            if (stage === 'destroy' && stones.length === 0) {
+                 if (!levelCompleteTime) levelCompleteTime = Date.now();
+                 if (Date.now() - levelCompleteTime > 2000) { window.nextStage(); levelCompleteTime = null; }
+            }
+        }
+        ctx.restore();
+
+        if (visibilityObscurity > 0) {
+            ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+            ctx.fillStyle = `rgba(240, 248, 255, ${visibilityObscurity * 0.9})`; 
+            ctx.fillRect(0, 0, width, height);
+            ctx.restore();
+        }
+        requestAnimationFrame(loop);
+    }
+
+    // Attach globals to window explicitly
+    window.startGameFlow = function() {
+        modal.classList.add('hidden');
+        startScreen.classList.add('hidden');
+        successScreen.classList.add('hidden');
+        handleResize(); 
+        initStones();
+        window.goToStage(1); 
+        requestAnimationFrame(loop);
+    };
+
+    window.nextStage = function() { window.goToStage(currentStageIndex + 1); };
+    window.goBack = function() { window.goToStage(currentStageIndex - 1); };
+    window.resetGame = function() { window.goToStage(0); };
+    
+    window.goToStage = function(index) {
+        if (index < 0) index = 0;
+        if (index >= STAGES.length) index = STAGES.length - 1;
+        currentStageIndex = index;
+        const stage = STAGES[index];
+
+        instructionBox.classList.remove('hidden');
+        instructionBox.classList.remove('top-left'); 
+        nextStageBtn.classList.add('hidden');
+        laserBtn.classList.remove('visible');
+        laserBtn.innerText = "לייזר";
+        backBtn.classList.remove('hidden');
+        
+        targetZoom = 1; targetOffset = {x: 0, y:0};
+        autoLaserTimer = 0; isLaserActive = false; isGrabbingTip = false;
+        levelCompleteTime = null; breathOffset = 0; visibilityObscurity = 0; 
+
+        if (stage === 'intro') {
+            modal.classList.remove('hidden'); startScreen.classList.remove('hidden');
+            backBtn.classList.add('hidden'); instructionBox.classList.add('hidden');
+        }
+        else if (stage === 'device_intro') {
+            instructionBox.classList.add('top-left');
+            stageTitle.innerText = "הכרת המכשיר: אורטרוסקופ";
+            stageContent.innerHTML = `<div style="text-align:right;"><p>זהו המכשיר שבו ישתמש הרופא, בקצה המכשיר יש מצלמה ולייזר איתם הרופא יאתר את האבן בדרכי השתן וירסק אותה.</p></div>`;
+            nextStageBtn.classList.remove('hidden');
+        }
+        else if (stage === 'demo_handle') {
+            instructionBox.classList.add('top-left');
+            stageTitle.innerText = "שלב 1: החדרת המכשיר";
+            stageContent.innerHTML = `<p>הבדיקה מתחילה בהחדרת צינורית דקה וגמישה דרך פתח השופכה.</p><div style="margin-top:10px; font-weight:bold; color: #90cdf4;">✓ ללא חתכים בגוף</div>`;
+            scopeProgressIndex = 0; initScopeAt(0); nextStageBtn.classList.add('hidden');
+        }
+        else if (stage === 'demo_tract') {
+            instructionBox.classList.add('top-left');
+            stageTitle.innerText = "שלב 2: תנועה בדרכי השתן";
+            stageContent.innerHTML = `<p>הצינורית מתקדמת בעדינות במעלה השופכן עד להגעה לכליה.</p>`;
+            targetZoom = 1.3;
+            targetOffset = { x: (width/2) * (1 - targetZoom), y: (height * 0.4) * (1 - targetZoom) };
+            scopeProgressIndex = organStartIndex; initScopeAt(organStartIndex); nextStageBtn.classList.add('hidden'); 
+        }
+        else if (stage === 'laser_explainer') {
+            stageTitle.innerText = "ריסוק האבן";
+            stageContent.innerHTML = `<p>כאשר הרופא מזהה את האבן הוא משתמש בקרן לייזר מדויקת כדי לפרק אותה.</p>`;
+            targetZoom = 2.0;
+            if (fullPath.length > 0) {
+                const endP = fullPath[fullPath.length-1];
+                targetOffset = { x: (width / 2) - (endP.x * 2.0), y: (height / 2) - (endP.y * 2.0) };
+            }
+            nextStageBtn.classList.remove('hidden');
+        }
+        else if (stage === 'navigate_handle') {
+            instructionBox.classList.add('top-left');
+            stageTitle.innerText = "תורכם: החדרת הצינורית";
+            stageContent.innerHTML = "תפסו את <b>קצה הצינורית</b> וגררו אותו אל תוך פתח השופכה.";
+            scopeProgressIndex = 0; initScopeAt(0);
+        }
+        else if (stage === 'navigate_tract') {
+            instructionBox.classList.add('top-left');
+            stageTitle.innerText = "תורכם: ניווט לכליה";
+            stageContent.innerHTML = "המשיכו לגרור את <b>קצה הצינורית</b>. היזהרו לא לפגוע בדפנות!";
+            targetZoom = 1.1; 
+            targetOffset = { x: (width/2) * (1 - targetZoom), y: (height * 0.55) * (1 - targetZoom) };
+            scopeProgressIndex = organStartIndex + 5; initScopeAt(scopeProgressIndex);
+        }
+        else if (stage === 'destroy') {
+            stageTitle.innerText = "המשחק: ריסוק האבנים";
+            stageContent.innerHTML = "גררו את הצינורית לאבן וכוונו במדויק. לחצו על הלייזר כדי לפורר אותה. הירי גורם לעכירות, המתינו לראות טובה.";
+            laserBtn.classList.add('visible');
+            targetZoom = 2.5;
+            if (fullPath.length > 0) {
+                if(stones.length === 0) initStones();
+                const target = stones[0] || fullPath[fullPath.length-1];
+                targetOffset = { x: (width / 2) - (target.x * 2.5), y: (height / 2) - (target.y * 2.5) };
+            }
+        }
+        else if (stage === 'post_op') {
+            modal.classList.remove('hidden'); successScreen.classList.remove('hidden');
+            instructionBox.classList.add('hidden'); backBtn.classList.add('hidden');
+        }
+    }
+
+    // Input handlers
+    function onMove(e) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        mouse.x = (cx - rect.left - cameraOffset.x) / cameraZoom;
+        mouse.y = (cy - rect.top - cameraOffset.y) / cameraZoom;
+        if (!isGrabbingTip && scopeChain.length > 0) {
+            const tip = scopeChain[0];
+            if (Math.hypot(mouse.x - tip.x, mouse.y - tip.y) < 100) canvas.style.cursor = 'grab';
+            else canvas.style.cursor = 'default';
+        }
+    }
+    function onDown(e) {
+        mouse.isDown = true; onMove(e);
+        if (scopeChain.length > 0) {
+            const tip = scopeChain[0];
+            if (Math.hypot(mouse.x - tip.x, mouse.y - tip.y) < 100) {
+                isGrabbingTip = true; canvas.style.cursor = 'grabbing';
+            }
+        }
+    }
+    function onUp(e) { mouse.isDown = false; isLaserActive = false; isGrabbingTip = false; canvas.style.cursor = 'default'; }
+    function handleResize() {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        fullPath = generateFullPaths(width, height);
+        initStones(); 
+        if (currentStageIndex === 0) drawOrgans(); 
+    }
+
+    window.addEventListener('resize', handleResize);
+    canvas.addEventListener('mousedown', onDown); canvas.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+    canvas.addEventListener('touchstart', onDown, {passive: false}); canvas.addEventListener('touchmove', onMove, {passive: false}); window.addEventListener('touchend', onUp);
+    
+    // Updated laser button listeners for "One Shot" behavior
+    laserBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); fireLaser(); });
+    laserBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); fireLaser(); });
+    // Removed mouseup/touchend listeners to prevent "hold to fire" behavior
+    
+    // Init
+    handleResize();
+</script>
+</body>
+</html>
