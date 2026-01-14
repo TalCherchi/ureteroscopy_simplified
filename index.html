@@ -226,8 +226,8 @@
             <button class="btn-action" onclick="window.startGameFlow()">בואו נתחיל</button>
         </div>
         <div class="modal-content hidden" id="success-screen">
-            <h2 style="color: #38a169;">הניתוח עבר בהצלחה!</h2>
-            <div class="info-list">
+            <h2 style="color: #38a169;">ההליך עבר בהצלחה!</h2>
+            <!-- <div class="info-list">
                 <h3>אחרי הניתוח – מה מרגישים?</h3>
                 <ul>
                     <li>מיד לאחר ההליך תישארו למעקב קצר. לרוב חוזרים הביתה באותו יום.</li>
@@ -244,7 +244,7 @@
                     <li>תחושת אי נוחות קלה</li>
                 </ul>
                 <p style="margin-top:5px; font-weight:bold; color: #2c7a7b;">✓ כל התופעות הללו חולפות תוך מספר ימים</p>
-            </div>
+            </div> -->
             <button class="btn-action" onclick="window.resetGame()">התחל מחדש</button>
         </div>
     </div>
@@ -553,8 +553,15 @@
         const previewScale = 0.75; const previewX = width * 0.75; const previewY = height * 0.5; 
         ctx.save(); ctx.translate(previewX, previewY); ctx.scale(previewScale, previewScale); ctx.translate(-width / 2, -height / 2);
         drawOrgans();
+        
+        // Save stone position for label line calculation
+        let stoneScreenX = 0, stoneScreenY = 0;
         if (fullPath.length > 0) {
             const stonePos = fullPath[fullPath.length - 1]; 
+            // Calculate screen coordinates for the label line
+            stoneScreenX = previewX + (stonePos.x - width/2) * previewScale;
+            stoneScreenY = previewY + (stonePos.y - height/2) * previewScale;
+
             ctx.translate(stonePos.x, stonePos.y); ctx.rotate(Math.PI / 4); 
             ctx.beginPath(); const r = 20; ctx.moveTo(r, 0);
             for (let i = 1; i < 8; i++) {
@@ -567,11 +574,28 @@
         ctx.restore();
 
         ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = "bold 16px Rubik";
-        const labelKidneyY = previewY - (height * 0.25 * previewScale); const labelBladderY = previewY + (height * 0.20 * previewScale);
-        ctx.fillText("אבן בכליה", previewX + 60, labelKidneyY); ctx.fillText("שלפוחית השתן", previewX + 80, labelBladderY);
+        
+        // Adjusted label position to be more dynamic relative to the stone
+        const labelKidneyY = previewY - (height * 0.25 * previewScale); 
+        const labelBladderY = previewY + (height * 0.20 * previewScale);
+        
+        // Draw Labels
+        ctx.fillText("אבן בכליה", previewX - 60, labelKidneyY); // Moved label left slightly
+        ctx.fillText("שלפוחית השתן", previewX + 80, labelBladderY);
+        
         ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(previewX + 50, labelKidneyY); ctx.lineTo(previewX, labelKidneyY + 20);
+        
+        // Draw line from "Kidney Stone" label directly to the calculated stone position
+        if (stoneScreenX !== 0) {
+            ctx.moveTo(previewX - 60 + 40, labelKidneyY); // Start from right side of label text
+            ctx.lineTo(stoneScreenX - 10, stoneScreenY); // Point to the stone
+        } else {
+             // Fallback if no stone position found
+             ctx.moveTo(previewX - 20, labelKidneyY); 
+             ctx.lineTo(previewX, labelKidneyY + 20);
+        }
+
         ctx.moveTo(previewX + 70, labelBladderY); ctx.lineTo(previewX, labelBladderY - 20);
         ctx.stroke();
     }
@@ -668,14 +692,14 @@
 
         if (stage === 'demo_handle') {
             if (scopeProgressIndex < organStartIndex) {
-                scopeProgressIndex += 0.5;
+                scopeProgressIndex += 0.15;
                 const idx = Math.floor(scopeProgressIndex);
                 if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
             } else { nextStageBtn.classList.remove('hidden'); }
         }
         else if (stage === 'demo_tract') {
             if (scopeProgressIndex < fullPath.length - 10) {
-                scopeProgressIndex += 0.5;
+                scopeProgressIndex += 0.15;
                 const idx = Math.floor(scopeProgressIndex);
                 if(fullPath[idx]) { scopeChain[0].x = fullPath[idx].x; scopeChain[0].y = fullPath[idx].y; }
             } else { nextStageBtn.classList.remove('hidden'); }
